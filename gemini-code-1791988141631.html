@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HALLOWEEN TOWER DEFENSE 2026</title>
+    <style>
+        * { box-sizing: border-box; user-select: none; }
+        body {
+            margin: 0; padding: 0;
+            background: #06030e; color: #f3f4f6;
+            font-family: 'Consolas', 'Courier New', monospace;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            min-height: 100vh; overflow: hidden;
+        }
+
+        .title {
+            font-size: 24px; font-weight: 900; letter-spacing: 2px;
+            background: linear-gradient(90deg, #f97316, #a855f7);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 6px;
+        }
+
+        #game-container {
+            position: relative;
+            border: 2px solid #581c87; border-radius: 10px;
+            box-shadow: 0 0 30px rgba(168, 85, 247, 0.2);
+            overflow: hidden; background: #0b0517;
+        }
+
+        canvas { display: block; cursor: crosshair; }
+
+        .hud {
+            position: absolute; top: 8px; left: 10px; right: 10px;
+            display: flex; justify-content: space-between; align-items: center;
+            pointer-events: none; z-index: 5;
+        }
+
+        .badge {
+            background: rgba(15, 7, 28, 0.9);
+            border: 1px solid rgba(168, 85, 247, 0.4);
+            padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: bold;
+            display: flex; gap: 12px;
+        }
+
+        .val-hp { color: #ef4444; } 
+        .val-gold { color: #fbbf24; } 
+        .val-score { color: #a855f7; }
+
+        .btn-ctrl {
+            pointer-events: auto;
+            background: #1e1b4b; border: 1px solid #7c3aed; color: #fff;
+            padding: 5px 10px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 11px;
+        }
+        .btn-ctrl:hover { background: #312e81; }
+
+        .build-bar {
+            position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 8px; background: rgba(15, 7, 28, 0.92);
+            padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(168, 85, 247, 0.4);
+            z-index: 5; pointer-events: auto;
+        }
+
+        .btn-tower {
+            background: #110c24; border: 1px solid #4c1d95; color: #fff;
+            padding: 6px 12px; border-radius: 6px; cursor: pointer;
+            font-family: inherit; font-size: 11px; display: flex; flex-direction: column; align-items: center;
+        }
+        .btn-tower:hover { border-color: #f97316; background: #2e1065; }
+        .btn-tower.active { border-color: #f97316; background: rgba(249, 115, 22, 0.3); }
+
+        #context-menu {
+            position: absolute; display: none; background: rgba(15, 7, 28, 0.95);
+            border: 1px solid #f97316; border-radius: 6px; padding: 6px; gap: 4px; z-index: 20;
+        }
+        .btn-action {
+            background: #1e1b4b; border: 1px solid #7c3aed; color: #fff;
+            padding: 4px 8px; font-size: 11px; border-radius: 4px; cursor: pointer; font-family: inherit;
+        }
+        .btn-action:hover { background: #312e81; }
+
+        .overlay {
+            position: absolute; inset: 0; background: rgba(6, 3, 14, 0.95);
+            display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 30;
+        }
+        .btn-start {
+            background: linear-gradient(135deg, #f97316, #7c3aed);
+            border: none; color: white; padding: 12px 28px; font-size: 15px;
+            font-weight: bold; border-radius: 8px; cursor: pointer; font-family: inherit; margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="title">HALLOWEEN ZOMBIE DEFENSE</div>
+
+    <div id="game-container">
+        <div class="hud">
+            <div class="badge">
+                <div>HP: <span id="ui-hp" class="val-hp">100</span></div>
+                <div>МОНЕТИ: <span id="ui-gold" class="val-gold">250</span> ₴</div>
+                <div>БАЛИ: <span id="ui-score" class="val-score">0</span></div>
+            </div>
+            <button class="btn-ctrl" onclick="togglePause()">⏸ Пауза</button>
+        </div>
+
+        <canvas id="canvas" width="900" height="550"></canvas>
+
+        <div id="context-menu">
+            <button class="btn-action" style="color:#34d399;" onclick="upgradeTower()">ПОКРАЩИТИ</button>
+            <button class="btn-action" style="color:#f87171;" onclick="sellTower()">ПРОДАТИ</button>
+        </div>
+
+        <div class="build-bar">
+            <button class="btn-tower active" id="btn-pulse" onclick="selectTower('PULSE')">
+                <span>🔮 Магічний Світ</span><span style="color:#fbbf24;">100 ₴</span>
+            </button>
+            <button class="btn-tower" id="btn-plasma" onclick="selectTower('PLASMA')">
+                <span>🎃 Гарбузова Бомба</span><span style="color:#fbbf24;">200 ₴</span>
+            </button>
+            <button class="btn-tower" id="btn-tesla" onclick="selectTower('TESLA')">
+                <span>⚡ Блискавка Смерті</span><span style="color:#fbbf24;">300 ₴</span>
+            </button>
+        </div>
+
+        <div id="start-screen" class="overlay">
+            <h1 style="color: #f97316; font-size: 30px; margin: 0;">АРМІЯ ЗОМБІ НАСТУПАЄ</h1>
+            <p style="color: #a855f7; font-size: 13px; margin-top: 8px; text-align: center; max-width: 400px;">
+                Захисти замок від армії хелловінських зомбі! Кликай будь-де на полі, щоб поставити башту.
+            </p>
+            <button class="btn-start" onclick="startGame()">ПОЧАТИ БІЙ</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let hp = 100, gold = 250, score = 0;
+        let isRunning = false, isPaused = false;
+        let selectedType = 'PULSE', selectedTower = null;
+        let gameTime = 0, bossTimer = 30, bossMult = 10;
+
+        const path = [
+            {x: 0, y: 100}, {x: 220, y: 100}, {x: 220, y: 420},
+            {x: 480, y: 420}, {x: 480, y: 140}, {x: 720, y: 140},
+            {x: 720, y: 450}, {x: 900, y: 450}
+        ];
+
+        const TOWER_TYPES = {
+            PULSE:  { cost: 100, range: 120, rate: 20, damage: 18, color: '#f97316' },
+            PLASMA: { cost: 200, range: 160, rate: 45, damage: 65, color: '#ef4444', splash: 55 },
+            TESLA:  { cost: 300, range: 140, rate: 25, damage: 30, color: '#a855f7' }
+        };
+
+        let towers = [], enemies = [], projectiles = [];
+
+        function selectTower(type) {
+            selectedType = type;
+            document.querySelectorAll('.btn-tower').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btn-${type.toLowerCase()}`).classList.add('active');
+            hideMenu();
+        }
+
+        class Zombie {
+            constructor(isBoss = false, mult = 1) {
+                this.x = path[0].x; this.y = path[0].y;
+                this.targetIndex = 1;
+                this.isBoss = isBoss;
+                this.speed = isBoss ? 0.5 : (1.1 + Math.random() * 0.3);
+                this.maxHp = isBoss ? (300 * mult) : (40 + gameTime * 0.8);
+                this.hp = this.maxHp;
+                this.radius = isBoss ? 24 : 13;
+            }
+
+            update() {
+                const target = path[this.targetIndex];
+                const dx = target.x - this.x, dy = target.y - this.y;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist < this.speed) {
+                    this.targetIndex++;
+                    if (this.targetIndex >= path.length) {
+                        hp -= this.isBoss ? 35 : 10;
+                        updateHUD();
+                        return true;
+                    }
+                } else {
+                    this.x += (dx / dist) * this.speed;
+                    this.y += (dy / dist) * this.speed;
+                }
+                return false;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.fillStyle = this.isBoss ? '#b91c1c' : '#15803d';
+                ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, Math.PI * 2); ctx.fill();
+
+                ctx.fillStyle = this.isBoss ? '#f97316' : '#22c55e';
+                ctx.beginPath(); ctx.arc(0, -this.radius * 0.6, this.radius * 0.6, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
+
+                ctx.fillStyle = '#111';
+                ctx.fillRect(this.x - 15, this.y - this.radius - 8, 30, 4);
+                ctx.fillStyle = '#22c55e';
+                ctx.fillRect(this.x - 15, this.y - this.radius - 8, Math.max(0, (this.hp / this.maxHp) * 30), 4);
+            }
+        }
+
+        class Tower {
+            constructor(x, y, type) {
+                this.x = x; this.y = y; this.type = type;
+                this.spec = { ...TOWER_TYPES[type] };
+                this.level = 1; this.cooldown = 0;
+            }
+
+            update() {
+                if (this.cooldown > 0) this.cooldown--;
+                let target = null, minDist = this.spec.range;
+                for (let e of enemies) {
+                    let d = Math.hypot(e.x - this.x, e.y - this.y);
+                    if (d < minDist) { minDist = d; target = e; }
+                }
+                if (target && this.cooldown === 0) {
+                    projectiles.push(new Projectile(this.x, this.y, target, this.spec));
+                    this.cooldown = this.spec.rate;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                if (selectedTower === this) {
+                    ctx.strokeStyle = '#f97316'; ctx.lineWidth = 1;
+                    ctx.beginPath(); ctx.arc(0, 0, this.spec.range, 0, Math.PI * 2); ctx.stroke();
+                }
+                ctx.fillStyle = '#110c24'; ctx.strokeStyle = this.spec.color; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        class Projectile {
+            constructor(x, y, target, spec) {
+                this.x = x; this.y = y; this.target = target;
+                this.spec = spec; this.speed = 9;
+            }
+
+            update() {
+                const dx = this.target.x - this.x, dy = this.target.y - this.y;
+                const dist = Math.hypot(dx, dy);
+                if (dist < this.speed) {
+                    if (this.spec.splash) {
+                        enemies.forEach(e => {
+                            if (Math.hypot(e.x - this.x, e.y - this.y) <= this.spec.splash) e.hp -= this.spec.damage;
+                        });
+                    } else {
+                        this.target.hp -= this.spec.damage;
+                    }
+                    return true;
+                }
+                this.x += (dx / dist) * this.speed;
+                this.y += (dy / dist) * this.speed;
+                return false;
+            }
+
+            draw() {
+                ctx.fillStyle = this.spec.color;
+                ctx.beginPath(); ctx.arc(this.x, this.y, 4, 0, Math.PI * 2); ctx.fill();
+            }
+        }
+
+        function drawMap() {
+            ctx.strokeStyle = '#1e1b4b'; ctx.lineWidth = 30; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            ctx.beginPath(); ctx.moveTo(path[0].x, path[0].y);
+            for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
+            ctx.stroke();
+            ctx.strokeStyle = '#7c3aed'; ctx.lineWidth = 3; ctx.stroke();
+        }
+
+        let frameCount = 0;
+
+        function updateHUD() {
+            document.getElementById('ui-hp').innerText = Math.max(0, hp);
+            document.getElementById('ui-gold').innerText = gold;
+            document.getElementById('ui-score').innerText = score;
+        }
+
+        function loop() {
+            if (!isRunning) return;
+
+            if (!isPaused) {
+                frameCount++;
+                if (frameCount % 60 === 0) {
+                    gameTime++;
+                    bossTimer--;
+                    if (bossTimer <= 0) {
+                        enemies.push(new Zombie(true, bossMult));
+                        bossTimer = 30;
+                        bossMult += 5;
+                    }
+                }
+                if (frameCount % 50 === 0) enemies.push(new Zombie(false));
+
+                towers.forEach(t => t.update());
+                for (let i = projectiles.length - 1; i >= 0; i--) {
+                    if (projectiles[i].update()) projectiles.splice(i, 1);
+                }
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    const e = enemies[i];
+                    if (e.update()) {
+                        enemies.splice(i, 1);
+                    } else if (e.hp <= 0) {
+                        gold += e.isBoss ? 100 : 12;
+                        score += e.isBoss ? 500 : 50;
+                        enemies.splice(i, 1);
+                        updateHUD();
+                    }
+                }
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawMap();
+            towers.forEach(t => t.draw());
+            projectiles.forEach(p => p.draw());
+            enemies.forEach(e => e.draw());
+
+            if (hp <= 0) {
+                isRunning = false;
+                alert(`ГРУ ЗАВЕРШЕНО! Результат: ${score} балів.`);
+                location.reload();
+                return;
+            }
+
+            requestAnimationFrame(loop);
+        }
+
+        // Простий та надійний обробник кліків без зайвих перешкод
+        canvas.addEventListener('click', (e) => {
+            if (!isRunning) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            const clickedTower = towers.find(t => Math.hypot(t.x - x, t.y - y) < 20);
+            if (clickedTower) {
+                selectedTower = clickedTower;
+                showMenu(e.clientX, e.clientY);
+                return;
+            }
+
+            hideMenu();
+
+            const spec = TOWER_TYPES[selectedType];
+            if (gold >= spec.cost) {
+                if (!towers.some(t => Math.hypot(t.x - x, t.y - y) < 35)) {
+                    towers.push(new Tower(x, y, selectedType));
+                    gold -= spec.cost;
+                    updateHUD();
+                }
+            }
+        });
+
+        function showMenu(clientX, clientY) {
+            const menu = document.getElementById('context-menu');
+            menu.style.display = 'flex';
+            menu.style.left = `${clientX + 5}px`;
+            menu.style.top = `${clientY - 30}px`;
+        }
+
+        function hideMenu() {
+            selectedTower = null;
+            document.getElementById('context-menu').style.display = 'none';
+        }
+
+        function upgradeTower() {
+            if (selectedTower) {
+                let cost = Math.round(selectedTower.spec.cost * 0.8);
+                if (gold >= cost) {
+                    gold -= cost;
+                    selectedTower.level++;
+                    selectedTower.spec.damage *= 1.4;
+                    selectedTower.spec.range *= 1.08;
+                    updateHUD();
+                }
+                hideMenu();
+            }
+        }
+
+        function sellTower() {
+            if (selectedTower) {
+                gold += Math.round(selectedTower.spec.cost * 0.6);
+                towers = towers.filter(t => t !== selectedTower);
+                updateHUD();
+                hideMenu();
+            }
+        }
+
+        function togglePause() { isPaused = !isPaused; }
+
+        function startGame() {
+            document.getElementById('start-screen').style.display = 'none';
+            isRunning = true;
+            updateHUD();
+            loop();
+        }
+    </script>
+</body>
+</html>
